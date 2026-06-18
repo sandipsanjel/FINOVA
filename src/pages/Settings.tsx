@@ -3,9 +3,11 @@ import { Card, CardHeader } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { FormRow, Input, Select } from "@/components/ui/Field";
 import { exportJSON } from "@/lib/export";
+import { useSyncStatus, testConnection, forceSync, type SyncPhase } from "@/lib/sync";
+import { useAuth } from "@/components/auth/AuthGate";
 import type { AppData, CurrencyCode } from "@/types";
-import { Database, Download, RefreshCw, Trash2, Upload } from "lucide-react";
-import { useRef } from "react";
+import { Cloud, CloudOff, Database, Download, RefreshCw, Trash2, Upload } from "lucide-react";
+import { useRef, useState } from "react";
 
 const CURRENCIES: CurrencyCode[] = ["NPR", "INR", "USD", "EUR", "GBP"];
 
@@ -17,6 +19,24 @@ export function Settings() {
   const importData = useStore((s) => s.importData);
   const exportData = useStore((s) => s.exportData);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  const { cloud, email } = useAuth();
+  const sync = useSyncStatus();
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
+
+  const runTest = async () => {
+    setTesting(true);
+    setTestResult(null);
+    setTestResult(await testConnection());
+    setTesting(false);
+  };
+  const runForceSync = async () => {
+    setTesting(true);
+    setTestResult(null);
+    setTestResult(await forceSync());
+    setTesting(false);
+  };
 
   const onImport = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -59,6 +79,68 @@ export function Settings() {
       </Card>
 
       <Card>
+        <CardHeader title="Cloud Sync" subtitle="Supabase connection & sync status" />
+        <div className="space-y-3">
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
+            <SyncBadge phase={sync.phase} />
+            <span className="text-slate-500 dark:text-slate-400">
+              Configured:{" "}
+              <strong className={cloud ? "text-emerald-500" : "text-rose-500"}>
+                {cloud ? "Yes" : "No"}
+              </strong>
+            </span>
+            <span className="text-slate-500 dark:text-slate-400">
+              Account: <strong>{email ?? (cloud ? "—" : "local-only mode")}</strong>
+            </span>
+            {sync.lastSavedAt && (
+              <span className="text-slate-500 dark:text-slate-400">
+                Last saved: <strong>{new Date(sync.lastSavedAt).toLocaleString()}</strong>
+              </span>
+            )}
+          </div>
+
+          {sync.lastError && (
+            <div className="rounded-xl border border-rose-300 bg-rose-50 p-3 text-xs text-rose-700 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-300">
+              <strong>Last sync error:</strong> {sync.lastError}
+            </div>
+          )}
+
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" disabled={testing} onClick={runTest}>
+              <Cloud size={16} /> Test connection
+            </Button>
+            <Button variant="outline" disabled={testing || !cloud} onClick={runForceSync}>
+              <RefreshCw size={16} /> Force sync now
+            </Button>
+          </div>
+
+          {testResult && (
+            <div
+              className={
+                "rounded-xl p-3 text-xs " +
+                (testResult.ok
+                  ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300"
+                  : "bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300")
+              }
+            >
+              {testResult.message}
+            </div>
+          )}
+
+          {!cloud && (
+            <div className="flex items-start gap-2 rounded-xl bg-slate-50 p-3 text-xs text-slate-500 dark:bg-slate-800/40 dark:text-slate-400">
+              <CloudOff size={15} className="mt-0.5 shrink-0" />
+              <p>
+                Running in local-only mode. Set <code>VITE_SUPABASE_URL</code> and{" "}
+                <code>VITE_SUPABASE_ANON_KEY</code> in <code>.env.local</code>, then restart{" "}
+                <code>npm run dev</code> to enable cloud sync.
+              </p>
+            </div>
+          )}
+        </div>
+      </Card>
+
+      <Card>
         <CardHeader title="Data Management" subtitle="Local-first — everything lives in this browser" />
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" onClick={() => exportJSON(exportData())}><Download size={16} /> Export backup (JSON)</Button>
@@ -86,6 +168,25 @@ export function Settings() {
         </div>
       </Card>
     </div>
+  );
+}
+
+const PHASE_META: Record<SyncPhase, { label: string; cls: string }> = {
+  offline: { label: "Local only", cls: "bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300" },
+  idle: { label: "Not signed in", cls: "bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300" },
+  connecting: { label: "Connecting…", cls: "bg-sky-100 text-sky-700 dark:bg-sky-950/50 dark:text-sky-300" },
+  synced: { label: "Synced", cls: "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300" },
+  saving: { label: "Saving…", cls: "bg-sky-100 text-sky-700 dark:bg-sky-950/50 dark:text-sky-300" },
+  saved: { label: "Saved", cls: "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300" },
+  error: { label: "Error", cls: "bg-rose-100 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300" },
+};
+
+function SyncBadge({ phase }: { phase: SyncPhase }) {
+  const m = PHASE_META[phase];
+  return (
+    <span className={"inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium " + m.cls}>
+      {m.label}
+    </span>
   );
 }
 
