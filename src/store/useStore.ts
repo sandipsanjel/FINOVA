@@ -40,7 +40,7 @@ interface StoreState extends AppData {
   removeAccount: (id: string) => void;
 
   // categories
-  addCategory: (c: Omit<Category, "id">) => void;
+  addCategory: (c: Omit<Category, "id">) => Category;
   removeCategory: (id: string) => void;
 
   // transactions
@@ -115,7 +115,11 @@ export const useStore = create<StoreState>()(
           transactions: s.transactions.filter((t) => t.accountId !== id && t.toAccountId !== id),
         })),
 
-      addCategory: (c) => set((s) => ({ categories: [...s.categories, { ...c, id: uid("cat") }] })),
+      addCategory: (c) => {
+        const cat: Category = { ...c, id: uid("cat") };
+        set((s) => ({ categories: [...s.categories, cat] }));
+        return cat;
+      },
       removeCategory: (id) => set((s) => ({ categories: s.categories.filter((c) => c.id !== id) })),
 
       addTransaction: (t) =>

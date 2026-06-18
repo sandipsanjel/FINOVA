@@ -14,6 +14,11 @@ const TYPES: { id: TransactionType; label: string; color: string }[] = [
   { id: "adjustment", label: "Adjustment", color: "bg-slate-500" },
 ];
 
+const CAT_COLORS = [
+  "#f97316", "#ef4444", "#eab308", "#a855f7", "#ec4899", "#f43f5e",
+  "#3b82f6", "#8b5cf6", "#0ea5e9", "#10b981", "#14b8a6", "#d946ef",
+];
+
 const blank = {
   type: "expense" as TransactionType,
   date: todayISO(),
@@ -34,12 +39,17 @@ export function TransactionModal() {
   const addTransaction = useStore((s) => s.addTransaction);
   const updateTransaction = useStore((s) => s.updateTransaction);
   const removeTransaction = useStore((s) => s.removeTransaction);
+  const addCategory = useStore((s) => s.addCategory);
   const editing = useStore((s) => s.transactions.find((t) => t.id === s.ui.editingTxId));
 
   const [form, setForm] = useState(blank);
+  const [addingCat, setAddingCat] = useState(false);
+  const [newCatName, setNewCatName] = useState("");
 
   useEffect(() => {
     if (!open) return;
+    setAddingCat(false);
+    setNewCatName("");
     if (editing) {
       setForm({
         type: editing.type,
@@ -63,6 +73,18 @@ export function TransactionModal() {
   }, [open, editingId]);
 
   const set = (patch: Partial<typeof form>) => setForm((f) => ({ ...f, ...patch }));
+
+  const commitNewCat = () => {
+    const name = newCatName.trim();
+    if (!name || form.type === "transfer") return;
+    const existing = categories.find(
+      (c) => c.type === form.type && c.name.toLowerCase() === name.toLowerCase()
+    );
+    const cat = existing ?? addCategory({ name, type: form.type, color: CAT_COLORS[Math.floor(Math.random() * CAT_COLORS.length)] });
+    set({ categoryId: cat.id });
+    setAddingCat(false);
+    setNewCatName("");
+  };
 
   const ownedAccounts = useMemo(
     () => (form.personId ? accounts.filter((a) => a.ownerId === form.personId) : accounts),
@@ -173,12 +195,42 @@ export function TransactionModal() {
           </FormRow>
         ) : (
           <FormRow label="Category">
-            <Select value={form.categoryId} onChange={(e) => set({ categoryId: e.target.value })}>
-              <option value="">Uncategorized</option>
-              {catOptions.map((c) => (
-                <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
-            </Select>
+            {addingCat ? (
+              <div className="flex gap-2">
+                <Input
+                  autoFocus
+                  placeholder="New category name"
+                  value={newCatName}
+                  onChange={(e) => setNewCatName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") { e.preventDefault(); commitNewCat(); }
+                    if (e.key === "Escape") { setAddingCat(false); setNewCatName(""); }
+                  }}
+                />
+                <Button type="button" variant="primary" disabled={!newCatName.trim()} onClick={commitNewCat}>
+                  Add
+                </Button>
+                <Button type="button" variant="ghost" onClick={() => { setAddingCat(false); setNewCatName(""); }}>
+                  Cancel
+                </Button>
+              </div>
+            ) : (
+              <div className="flex gap-2">
+                <Select
+                  className="flex-1"
+                  value={form.categoryId}
+                  onChange={(e) => set({ categoryId: e.target.value })}
+                >
+                  <option value="">Uncategorized</option>
+                  {catOptions.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </Select>
+                <Button type="button" variant="outline" onClick={() => setAddingCat(true)}>
+                  + New
+                </Button>
+              </div>
+            )}
           </FormRow>
         )}
 

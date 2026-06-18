@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/Button";
 import { useStore } from "@/store/useStore";
-import { Menu, Moon, Plus, Sun } from "lucide-react";
+import { useAuth } from "@/components/auth/AuthGate";
+import { LogOut, Menu, Moon, Plus, Sun } from "lucide-react";
 
 const TITLES: Record<string, string> = {
   dashboard: "Dashboard",
@@ -18,6 +19,7 @@ export function Topbar({ page, onOpenMobile }: { page: string; onOpenMobile: () 
   const theme = useStore((s) => s.settings.theme);
   const toggleTheme = useStore((s) => s.toggleTheme);
   const openTxModal = useStore((s) => s.openTxModal);
+  const { cloud, email, signOut } = useAuth();
 
   return (
     <header className="no-print sticky top-0 z-20 flex h-16 items-center justify-between gap-3 border-b border-slate-200 bg-slate-50/80 px-4 backdrop-blur dark:border-slate-800 dark:bg-[#0b0f17]/80 sm:px-6">
@@ -44,6 +46,11 @@ export function Topbar({ page, onOpenMobile }: { page: string; onOpenMobile: () 
           <Plus size={18} />
           <span className="hidden sm:inline">Add Transaction</span>
         </Button>
+        {cloud && (
+          <Button variant="outline" size="icon" onClick={() => void signOut()} title={email ? `Sign out (${email})` : "Sign out"}>
+            <LogOut size={18} />
+          </Button>
+        )}
       </div>
     </header>
   );
