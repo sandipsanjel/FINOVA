@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase, supabaseEnabled } from "@/lib/supabase";
 import { connectSync, disconnectSync } from "@/lib/sync";
@@ -26,10 +26,23 @@ export function AuthGate({ children }: { children: ReactNode }) {
   return <CloudAuthGate>{children}</CloudAuthGate>;
 }
 
+const SESSION_TIMEOUT_MS = 60 * 60 * 1000; // 1 hour
+const ACTIVITY_EVENTS = ["mousemove", "mousedown", "keydown", "touchstart", "scroll"] as const;
+
 function CloudAuthGate({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [ready, setReady] = useState(false);
   const [synced, setSynced] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const signOutDueToInactivity = useCallback(() => {
+    supabase!.auth.signOut();
+  }, []);
+
+  const resetTimer = useCallback(() => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(signOutDueToInactivity, SESSION_TIMEOUT_MS);
+  }, [signOutDueToInactivity]);
 
   useEffect(() => {
     supabase!.auth.getSession().then(({ data }) => {
@@ -39,6 +52,20 @@ function CloudAuthGate({ children }: { children: ReactNode }) {
     const { data: sub } = supabase!.auth.onAuthStateChange((_e, s) => setSession(s));
     return () => sub.subscription.unsubscribe();
   }, []);
+
+  // Inactivity timeout — only active while signed in
+  useEffect(() => {
+    if (!session) {
+      if (timerRef.current) clearTimeout(timerRef.current);
+      return;
+    }
+    resetTimer();
+    ACTIVITY_EVENTS.forEach((e) => window.addEventListener(e, resetTimer, { passive: true }));
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+      ACTIVITY_EVENTS.forEach((e) => window.removeEventListener(e, resetTimer));
+    };
+  }, [session, resetTimer]);
 
   const userId = session?.user.id ?? null;
   useEffect(() => {

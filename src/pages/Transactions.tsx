@@ -14,7 +14,11 @@ export function Transactions() {
   const filters = useStore((s) => s.ui.filters);
   const openTxModal = useStore((s) => s.openTxModal);
 
-  const filtered = useMemo(() => applyFilters(data.transactions, filters), [data.transactions, filters]);
+  const filtered = useMemo(() => {
+    const txns = applyFilters(data.transactions, filters);
+    const dir = filters.sortOrder === "asc" ? 1 : -1;
+    return [...txns].sort((a, b) => a.date < b.date ? -dir : a.date > b.date ? dir : 0);
+  }, [data.transactions, filters]);
   const summary = useMemo(() => summarize(filtered), [filtered]);
   const { currency } = data.settings;
 

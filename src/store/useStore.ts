@@ -87,7 +87,7 @@ export const useStore = create<StoreState>()(
     (set, get) => ({
       ...initial,
       ui: {
-        filters: { personId: "all", accountId: "all", categoryId: "all", type: "all" },
+        filters: { personId: "all", accountId: "all", categoryId: "all", type: "all", sortOrder: "desc" },
         txModalOpen: false,
         editingTxId: null,
       },
@@ -188,7 +188,7 @@ export const useStore = create<StoreState>()(
         set((s) => ({
           ui: {
             ...s.ui,
-            filters: { personId: "all", accountId: "all", categoryId: "all", type: "all" },
+            filters: { personId: "all", accountId: "all", categoryId: "all", type: "all", sortOrder: "desc" },
           },
         })),
       openTxModal: (id) => set((s) => ({ ui: { ...s.ui, txModalOpen: true, editingTxId: id ?? null } })),

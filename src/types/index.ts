@@ -118,4 +118,5 @@ export interface Filters {
   categoryId?: ID | "all";
   type?: TransactionType | "all";
   search?: string;
+  sortOrder?: "asc" | "desc";
 }

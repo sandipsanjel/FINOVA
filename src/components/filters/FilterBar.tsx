@@ -61,6 +61,10 @@ export function FilterBar({ showSearch = true }: { showSearch?: boolean }) {
         <option value="transfer">Transfer</option>
         <option value="adjustment">Adjustment</option>
       </Select>
+      <Select value={filters.sortOrder ?? "desc"} onChange={(e) => setFilters({ sortOrder: e.target.value as "asc" | "desc" })} className="w-auto">
+        <option value="desc">Newest first</option>
+        <option value="asc">Oldest first</option>
+      </Select>
       <Button variant="ghost" size="icon" onClick={resetFilters} title="Reset filters">
         <RotateCcw size={16} />
       </Button>
